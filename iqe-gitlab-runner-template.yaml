@@ -1,0 +1,282 @@
+kind: Template
+apiVersion: v1
+metadata:
+  name: iqe-gitlab-runner
+
+parameters:
+- name: NAME
+  displayName: Name
+  required: true
+  value: iqe-gitlab-runner
+- name: CI_SERVER_URL
+  displayName: Gitlab URL
+  description: URL of a Gitlab instance
+  required: true
+- name: REGISTRATION_TOKEN
+  displayName: Registration token
+  description: Runner's registration token
+  required: true
+- name: CONCURRENT
+  displayName: Concurrent
+  description: The maximum number of concurrent CI pods
+  required: true
+- name: RUNNER_TAG_LIST
+  displayName: Tag list
+  required: false
+
+objects:
+
+- kind: ConfigMap
+  apiVersion: v1
+  metadata:
+    name: gitlab-runner-config-map
+  data:
+    config.toml: |-
+      concurrent = ${CONCURRENT}
+    runner_name: "${NAME}"
+    ci_server_url: "${CI_SERVER_URL}"
+    registration_token: "${REGISTRATION_TOKEN}"
+    runner_tag_list: "${RUNNER_TAG_LIST}"
+
+- kind: ServiceAccount
+  apiVersion: v1
+  metadata:
+    name: gitlab
+
+- kind: RoleBinding
+  apiVersion: rbac.authorization.k8s.io/v1
+  metadata:
+    name: gitlab-rb
+  roleRef:
+    apiGroup: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: edit
+  subjects:
+  - kind: ServiceAccount
+    name: gitlab
+
+- kind: BuildConfig
+  apiVersion: v1
+  metadata:
+    labels:
+      app: "${NAME}"
+    name: "${NAME}"
+    annotations:
+      template.alpha.openshift.io/wait-for-ready: "true"
+  spec:
+    failedBuildsHistoryLimit: 5
+    nodeSelector: null
+    output:
+      to:
+        kind: ImageStreamTag
+        name: "iqe-gitlab-runner:latest"
+    postCommit: {}
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    runPolicy: Serial
+    source:
+      git:
+        uri: https://github.com/RedHatQE/insights-qe-runner-base
+        ref: master
+      type: Git
+    strategy:
+      dockerStrategy:
+        dockerfilePath: runner.Dockerfile
+      type: Docker
+    successfulBuildsHistoryLimit: 5
+    triggers:
+      - type: ConfigChange
+
+- kind: ImageStream
+  apiVersion: v1
+  metadata:
+    name: "${NAME}"
+  spec:
+    lookupPolicy:
+      local: true
+
+- kind: BuildConfig
+  apiVersion: v1
+  metadata:
+    labels:
+      app: iqe-gitlab-helper
+    name: iqe-gitlab-helper
+    annotations:
+      template.alpha.openshift.io/wait-for-ready: "true"
+  spec:
+    failedBuildsHistoryLimit: 5
+    nodeSelector: null
+    output:
+      to:
+        kind: ImageStreamTag
+        name: iqe-gitlab-helper:latest
+    postCommit: {}
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    runPolicy: Serial
+    source:
+      git:
+        uri: https://github.com/RedHatQE/insights-qe-runner-base
+        ref: master
+      type: Git
+    strategy:
+      dockerStrategy:
+        dockerfilePath: helper.Dockerfile
+      type: Docker
+    successfulBuildsHistoryLimit: 5
+    triggers:
+      - type: ConfigChange
+
+- kind: ImageStream
+  apiVersion: v1
+  metadata:
+    name: iqe-gitlab-helper
+  spec:
+    lookupPolicy:
+      local: true
+
+- kind: BuildConfig
+  apiVersion: v1
+  metadata:
+    labels:
+      app: iqe-gitlab-builder
+    name: iqe-gitlab-builder
+    annotations:
+      template.alpha.openshift.io/wait-for-ready: "true"
+  spec:
+    failedBuildsHistoryLimit: 5
+    nodeSelector: null
+    output:
+      to:
+        kind: ImageStreamTag
+        name: "iqe-gitlab-builder:latest"
+    postCommit: {}
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    runPolicy: Serial
+    source:
+      git:
+        uri: https://github.com/RedHatQE/insights-qe-runner-base
+        ref: master
+      type: Git
+    strategy:
+      dockerStrategy:
+        dockerfilePath: builder.Dockerfile
+      type: Docker
+    successfulBuildsHistoryLimit: 5
+    triggers:
+      - type: ConfigChange
+
+- kind: ImageStream
+  apiVersion: v1
+  metadata:
+    name: iqe-gitlab-builder
+  spec:
+    lookupPolicy:
+      local: true
+
+- kind: DeploymentConfig
+  apiVersion: v1
+  metadata:
+    name: "${NAME}"
+  spec:
+    strategy:
+      type: Recreate
+    triggers:
+    - type: ImageChange
+      imageChangeParams:
+        automatic: true
+        containerNames:
+        - "${NAME}"
+        from:
+          kind: ImageStreamTag
+          name: ${NAME}:latest
+    replicas: 1
+    selector:
+      name: "${NAME}"
+    template:
+      metadata:
+        name: "${NAME}"
+        labels:
+          name: "${NAME}"
+      spec:
+        containers:
+        - name: "${NAME}"
+          image: " "
+          env:
+            - name: RUNNER_EXECUTOR
+              value: "kubernetes"
+            - name: REGISTER_LOCKED
+              value: "false"
+            - name: REGISTER_NON_INTERACTIVE
+              value: "true"
+            - name: RUNNER_NAME
+              valueFrom:
+                configMapKeyRef:
+                  key: runner_name
+                  name: gitlab-runner-config-map
+            - name: CI_SERVER_URL
+              valueFrom:
+                configMapKeyRef:
+                  key: ci_server_url
+                  name: gitlab-runner-config-map
+            - name: REGISTRATION_TOKEN
+              valueFrom:
+                configMapKeyRef:
+                  key: registration_token
+                  name: gitlab-runner-config-map
+            - name: RUNNER_TAG_LIST
+              valueFrom:
+                configMapKeyRef:
+                  key: runner_tag_list
+                  name: gitlab-runner-config-map
+            - name: KUBERNETES_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: KUBERNETES_BUILDER_IMAGE
+              value: iqe-gitlab-builder:latest
+            - name: KUBERNETES_HELPER_IMAGE
+              value: iqe-gitlab-helper:latest
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                  - bash
+                  - -c
+                  - |
+                    set -e
+                    cp $HOME/.gitlab-runner/config.toml /tmp
+                    gitlab-runner register -c /tmp/config.toml
+                    oc create cm gitlab-runner-config-map --from-file=/tmp/config.toml -o yaml --dry-run | \
+                    oc apply -f -
+            preStop:
+              exec:
+                command:
+                  - bash
+                  - -c
+                  - |
+                    set -e
+                    cp $HOME/.gitlab-runner/config.toml /tmp
+                    gitlab-runner unregister -c /tmp/config.toml --all-runners
+                    oc create cm gitlab-runner-config-map --from-file=/tmp/config.toml -o yaml --dry-run | \
+                    oc apply -f -
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - mountPath: "/home/gitlab-runner/.gitlab-runner"
+              name: gitlab-runner-config
+        serviceAccountName: gitlab
+        volumes:
+        - name: gitlab-runner-config
+          configMap:
+            name: gitlab-runner-config-map
