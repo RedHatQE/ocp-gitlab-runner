@@ -69,7 +69,7 @@ objects:
     output:
       to:
         kind: ImageStreamTag
-        name: "iqe-gitlab-runner:latest"
+        name: "${NAME}:latest"
     postCommit: {}
     resources:
       limits:
