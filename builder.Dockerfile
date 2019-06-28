@@ -14,6 +14,7 @@ RUN dnf install -y \
         gcc \
         postgresql-devel \
         python3-devel \
+        make \
         krb5-devel && \
     dnf clean all
 
