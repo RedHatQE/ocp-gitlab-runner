@@ -1,6 +1,6 @@
 FROM fedora:30
 
-ENV HOME=/home/workspace
+ENV HOME=/home/workspace/
 
 WORKDIR $HOME
 
@@ -23,9 +23,13 @@ RUN pip3 install -U pip tox setuptools setuptools-scm pre-commit devpi-client
 RUN git init
 
 COPY .pre-commit-config.yaml .
+COPY uid_entrypoint.sh /
 
 RUN pre-commit install-hooks && \
-    chmod -R g=u $HOME && \
-    chgrp -R 0 $HOME
+    chmod -R g=u $HOME /etc/passwd && \
+    chgrp -R 0 $HOME && \
+    chmod a+x /uid_entrypoint.sh
 
 USER 1000
+
+ENTRYPOINT ["/uid_entrypoint.sh"]
