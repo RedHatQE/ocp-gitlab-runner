@@ -18,7 +18,7 @@ RUN dnf install -y \
         krb5-devel && \
     dnf clean all
 
-RUN pip3 install -U pip tox setuptools setuptools-scm pre-commit devpi-client
+RUN pip3 install -U pip tox tox-venv setuptools setuptools-scm pre-commit devpi-client
 
 RUN git init
 
