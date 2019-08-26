@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/rhel7-atomic
+FROM registry.access.redhat.com/ubi7/ubi-minimal
 
 ENV HOME=/home/gitlab-runner
 
