@@ -16,7 +16,8 @@ RUN dnf install -y \
         python3-devel \
         make \
         krb5-devel && \
-    dnf clean all
+    dnf clean all && \
+    curl -ksL https://url.corp.redhat.com/98bcda0 -o /etc/pki/ca-trust/source/anchors/RH-IT-Root-CA.crt
 
 RUN pip3 install -U pip tox tox-venv setuptools setuptools-scm pre-commit devpi-client
 
@@ -25,7 +26,8 @@ RUN git init
 COPY .pre-commit-config.yaml .
 COPY uid_entrypoint.sh /
 
-RUN pre-commit install-hooks && \
+RUN update-ca-trust && \
+    pre-commit install-hooks && \
     chmod -R g=u $HOME /etc/passwd && \
     chgrp -R 0 $HOME && \
     chmod a+x /uid_entrypoint.sh
