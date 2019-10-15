@@ -5,6 +5,7 @@ ENV HOME=/home/workspace/
 WORKDIR $HOME
 
 RUN dnf install -y \
+        libffi-devel \
         origin-clients \
         python3-pip \
         git \

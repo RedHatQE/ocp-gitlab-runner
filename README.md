@@ -14,7 +14,7 @@ Contents
 
 ## runner.Dockerfile
 
-This image based on RHEL7 Atomic to minimize the resource consumption. Contains `gitlab-runner`
+This image based on UBI7-minimal to minimize the resource consumption. Contains `gitlab-runner`
 executable that talks to Gitlab CI and spawns builder pods via `kubernetes` executor. Besides it
 includes an internal Red Hat IT root certificate.
 
