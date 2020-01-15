@@ -33,6 +33,8 @@ RUN update-ca-trust && \
     chgrp -R 0 $HOME && \
     chmod a+x /uid_entrypoint.sh
 
+ENV REQUESTS_CA_BUNDLE=/etc/pki/tls/certs/ca-bundle.crt
+
 USER 1000
 
 ENTRYPOINT ["/uid_entrypoint.sh"]
