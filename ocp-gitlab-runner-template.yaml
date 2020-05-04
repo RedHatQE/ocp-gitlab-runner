@@ -1,0 +1,257 @@
+kind: Template
+apiVersion: template.openshift.io/v1
+metadata:
+  name: ocp-gitlab-runner
+
+parameters:
+- name: NAME
+  displayName: Name
+  required: true
+  value: gitlab-runner
+- name: CI_SERVER_URL
+  displayName: Gitlab URL
+  description: URL of a Gitlab instance
+  required: true
+- name: REGISTRATION_TOKEN
+  displayName: Registration token
+  description: Runner's registration token
+  required: true
+- name: CONCURRENT
+  displayName: Concurrent
+  description: The maximum number of concurrent CI pods
+  required: true
+- name: RUNNER_TAG_LIST
+  displayName: Tag list
+  required: false
+- name: GITLAB_BUILDER_IMAGE
+  displayName: Gitlab builder image
+  description: A default image which will be used in Gitlab CI
+  required: false
+  value: ""
+
+objects:
+
+- kind: ConfigMap
+  apiVersion: v1
+  metadata:
+    name: gitlab-runner-config-map
+    labels:
+      app: ${NAME}
+  data:
+    config.toml: |-
+      concurrent = ${CONCURRENT}
+      check_interval = 30
+      log_level = "info"
+      listen_address = ":9252"
+
+- kind: ServiceAccount
+  apiVersion: v1
+  metadata:
+    name: gitlab
+    labels:
+      app: ${NAME}
+
+- kind: RoleBinding
+  apiVersion: rbac.authorization.k8s.io/v1
+  metadata:
+    name: gitlab-rb
+    labels:
+      app: ${NAME}
+  roleRef:
+    apiGroup: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: edit
+  subjects:
+  - kind: ServiceAccount
+    name: gitlab
+
+- kind: BuildConfig
+  apiVersion: v1
+  metadata:
+    labels:
+      app: ${NAME}
+    name: ${NAME}
+    annotations:
+      template.alpha.openshift.io/wait-for-ready: "true"
+  spec:
+    failedBuildsHistoryLimit: 1
+    successfulBuildsHistoryLimit: 1
+    output:
+      to:
+        kind: ImageStreamTag
+        name: ${NAME}:latest
+    resources:
+      request:
+        cpu: 100m
+        memory: 100Mi       
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    runPolicy: Serial
+    source:
+      git:
+        uri: https://github.com/RedHatQE/ocp-gitlab-runner
+        ref: master
+      type: Git
+    strategy:
+      dockerStrategy:
+        dockerfilePath: runner.Dockerfile
+      type: Docker
+    triggers:
+      - type: ConfigChange
+
+- kind: ImageStream
+  apiVersion: v1
+  metadata:
+    name: ${NAME}
+    labels:
+      app: ${NAME}
+  spec:
+    lookupPolicy:
+      local: true
+
+- kind: BuildConfig
+  apiVersion: v1
+  metadata:
+    labels:
+      app: ${NAME}
+    name: gitlab-helper
+    annotations:
+      template.alpha.openshift.io/wait-for-ready: "true"
+  spec:
+    failedBuildsHistoryLimit: 1
+    successfulBuildsHistoryLimit: 1
+    output:
+      to:
+        kind: ImageStreamTag
+        name: gitlab-helper:latest
+    resources:
+      request:
+        cpu: 100m
+        memory: 100Mi   
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    runPolicy: Serial
+    source:
+      git:
+        uri: https://github.com/RedHatQE/ocp-gitlab-runner
+        ref: master
+      type: Git
+    strategy:
+      dockerStrategy:
+        dockerfilePath: helper.Dockerfile
+      type: Docker
+    triggers:
+      - type: ConfigChange
+
+- kind: ImageStream
+  apiVersion: v1
+  metadata:
+    name: gitlab-helper
+    labels:
+      app: ${NAME}
+  spec:
+    lookupPolicy:
+      local: true
+
+- kind: DeploymentConfig
+  apiVersion: v1
+  metadata:
+    name: ${NAME}
+    labels:
+      app: ${NAME}
+  spec:
+    strategy:
+      type: Recreate
+    triggers:
+    - type: ImageChange
+      imageChangeParams:
+        automatic: true
+        containerNames:
+        - ${NAME}
+        from:
+          kind: ImageStreamTag
+          name: ${NAME}:latest
+    replicas: 1
+    selector:
+      name: ${NAME}
+    template:
+      metadata:
+        name: ${NAME}
+        labels:
+          name: ${NAME}
+      spec:
+        initContainers:
+        - name: busybox
+          image: docker.io/busybox
+          command: 
+            - cp
+            - /mnt/gitlab-runner-config/config.toml
+            - /mnt/data/config.toml
+          resources:
+            limits:
+              cpu: 50m
+              memory: 50Mi
+          volumeMounts:
+            - mountPath: /mnt/gitlab-runner-config
+              name: gitlab-runner-config
+            - mountPath: /mnt/data
+              name: data
+        - name: gitlab-runner-init
+          image: ${NAME}
+          env:
+            - name: RUNNER_EXECUTOR
+              value: kubernetes
+            - name: REGISTER_LOCKED
+              value: "false"
+            - name: REGISTER_NON_INTERACTIVE
+              value: "true"
+            - name: RUNNER_NAME
+              value: ${NAME}
+            - name: CI_SERVER_URL
+              value: ${CI_SERVER_URL}
+            - name: REGISTRATION_TOKEN
+              value: ${REGISTRATION_TOKEN}
+            - name: RUNNER_TAG_LIST
+              value: ${RUNNER_TAG_LIST}
+            - name: KUBERNETES_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: KUBERNETES_BUILDER_IMAGE
+              value: ${GITLAB_BUILDER_IMAGE}
+            - name: KUBERNETES_HELPER_IMAGE
+              value: gitlab-helper:latest
+          command: 
+            - gitlab-runner
+            - register
+          resources:
+            limits:
+              cpu: 100m
+              memory: 100Mi
+          volumeMounts:
+            - mountPath: /mnt/gitlab-runner-config
+              name: gitlab-runner-config
+        containers:
+        - name: ${NAME}
+          image: " "
+          resources:
+            request:
+              cpu: 100m
+              memory: 100Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - mountPath: /home/gitlab-runner/.gitlab-runner
+              name: data
+              readOnly: false
+        serviceAccountName: gitlab
+        volumes:
+          - name: data
+            emptyDir: {}
+          - name: gitlab-runner-config
+            configMap:
+              name: gitlab-runner-config-map
