@@ -232,8 +232,9 @@ objects:
               cpu: 100m
               memory: 100Mi
           volumeMounts:
-            - mountPath: /mnt/gitlab-runner-config
-              name: gitlab-runner-config
+            - mountPath: /home/gitlab-runner/.gitlab-runner
+              name: data
+              readOnly: false
         containers:
         - name: ${NAME}
           image: " "
