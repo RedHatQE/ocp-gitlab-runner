@@ -10,7 +10,7 @@ parameters:
   value: gitlab-runner
 - name: CI_SERVER_URL
   displayName: Gitlab URL
-  description: URL of a Gitlab instance
+  description: URL of a Gitlab instance (no https:// or http:// prefix required)
   required: true
 - name: REGISTRATION_TOKEN
   displayName: Registration token
@@ -28,6 +28,11 @@ parameters:
   description: A default image which will be used in Gitlab CI
   required: false
   value: ""
+- name: RH_ROOT_CA_CERT
+  displayName: Red Hat Root CA Cert
+  description: Red Hat Root CA Cert to clone the repo while validating Certs
+  required: false
+
 
 objects:
 
@@ -198,6 +203,8 @@ objects:
               name: gitlab-runner-config
             - mountPath: /mnt/data
               name: data
+            - name: rh-root-cert
+              mountPath: /home/gitlab-runner/.gitlab-runner/certs/
         - name: gitlab-runner-init
           image: ${NAME}
           env:
@@ -210,7 +217,7 @@ objects:
             - name: RUNNER_NAME
               value: ${NAME}
             - name: CI_SERVER_URL
-              value: ${CI_SERVER_URL}
+              value: https://${CI_SERVER_URL}
             - name: REGISTRATION_TOKEN
               value: ${REGISTRATION_TOKEN}
             - name: RUNNER_TAG_LIST
@@ -235,6 +242,8 @@ objects:
             - mountPath: /home/gitlab-runner/.gitlab-runner
               name: data
               readOnly: false
+            - name: rh-root-cert
+              mountPath: /home/gitlab-runner/.gitlab-runner/certs/
         containers:
         - name: ${NAME}
           image: " "
@@ -249,10 +258,24 @@ objects:
             - mountPath: /home/gitlab-runner/.gitlab-runner
               name: data
               readOnly: false
+            - name: rh-root-cert
+              mountPath: /home/gitlab-runner/.gitlab-runner/certs/
         serviceAccountName: gitlab
         volumes:
+          - name: rh-root-cert
+            secret:
+              secretName: rh-root-cert
+              defaultMode: 420
           - name: data
             emptyDir: {}
           - name: gitlab-runner-config
             configMap:
               name: gitlab-runner-config-map
+- kind: Secret
+  apiVersion: v1
+  metadata:
+    name: rh-root-cert
+  data:
+    ${CI_SERVER_URL}.crt: >-
+      ${RH_ROOT_CA_CERT}
+  type: Opaque

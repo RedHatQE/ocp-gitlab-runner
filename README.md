@@ -23,3 +23,8 @@ run the container using an arbitrarily assigned user ID.
 An Openshift template that creates required objects and deploys the runner with minimum efforts.
 Just provide a name, Gitlab instance url, runner's registration token and desired number of
 concurrent build pods.
+
+For Red Hat internal use cases, we have added `secret: rh-root-cert`, and added that in `volumes:`, and `volumeMounts:` but may not be needed for non Red Hat Users. You may choose to delete it before importing the template to your OpenShift.
+
+#### Tested on OpenShift: 
+- Red Hat OpenShift Container Platform 4 with Kubernetes v1.16.2
