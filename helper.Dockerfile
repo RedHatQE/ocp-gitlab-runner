@@ -7,4 +7,4 @@ WORKDIR $HOME
 RUN chgrp -R 0 $HOME && \
     chmod -R g=u $HOME
 
-USER 1000
+USER 1001
