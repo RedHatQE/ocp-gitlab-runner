@@ -8,13 +8,18 @@ parameters:
   displayName: Name
   required: true
   value: gitlab-runner
-- name: CI_SERVER_URL
-  displayName: Gitlab URL
-  description: URL of a Gitlab instance
+- name: GITLAB_HOST
+  displayName: Gitlab host
+  description: Host of a Gitlab instance
   required: true
+- name: GITLAB_RUNNER_VERSION
+  displayName: Gitlab runner version
+  description:
+  required: false
+  value: latest
 - name: REGISTRATION_TOKEN
   displayName: Registration token
-  description: Runner's registration token
+  description: Runner's registration token. Base64 encoded string is expected.
   required: true
 - name: CONCURRENT
   displayName: Concurrent
@@ -26,6 +31,13 @@ parameters:
 - name: GITLAB_BUILDER_IMAGE
   displayName: Gitlab builder image
   description: A default image which will be used in Gitlab CI
+  required: false
+  value: ""
+- name: TLS_CA_CERT
+  displayName: CA certificate
+  description: |
+    A certificate that is used to verify TLS peers when connecting to the GitLab server.
+    Base64 encoded string is expected.
   required: false
   value: ""
 
@@ -43,6 +55,17 @@ objects:
       check_interval = 30
       log_level = "info"
       listen_address = ":9252"
+
+- kind: Secret
+  apiVersion: v1
+  metadata:
+    name: gitlab-runner-secret
+    labels:
+      app: ${NAME}
+  data:
+    registrationToken: ${REGISTRATION_TOKEN}
+    ${GITLAB_HOST}.crt: ${TLS_CA_CERT}
+  type: Opaque
 
 - kind: ServiceAccount
   apiVersion: v1
@@ -96,6 +119,9 @@ objects:
     strategy:
       dockerStrategy:
         dockerfilePath: runner.Dockerfile
+        buildArgs:
+          - name: GITLAB_RUNNER_VERSION
+            value: ${GITLAB_RUNNER_VERSION}
       type: Docker
     triggers:
       - type: ConfigChange
@@ -158,6 +184,8 @@ objects:
 - kind: DeploymentConfig
   apiVersion: v1
   metadata:
+    annotations:
+      template.alpha.openshift.io/wait-for-ready: "true"
     name: ${NAME}
     labels:
       app: ${NAME}
@@ -185,11 +213,19 @@ objects:
         initContainers:
         - name: busybox
           image: docker.io/busybox
-          command: 
-            - cp
-            - /mnt/gitlab-runner-config/config.toml
-            - /mnt/data/config.toml
+          command:
+            - /bin/sh
+            - -c
+            - |
+              cp /mnt/gitlab-runner-config/config.toml /mnt/data/config.toml
+              if [ -s /mnt/secrets/${GITLAB_HOST}.crt ]; then
+                mkdir /mnt/data/certs
+                cp /mnt/secrets/${GITLAB_HOST}.crt /mnt/data/certs
+              fi
           resources:
+            requests:
+              cpu: 10m
+              memory: 10Mi
             limits:
               cpu: 50m
               memory: 50Mi
@@ -198,6 +234,8 @@ objects:
               name: gitlab-runner-config
             - mountPath: /mnt/data
               name: data
+            - mountPath: /mnt/secrets
+              name: gitlab-runner-secret
         - name: gitlab-runner-init
           image: ${NAME}
           env:
@@ -210,9 +248,12 @@ objects:
             - name: RUNNER_NAME
               value: ${NAME}
             - name: CI_SERVER_URL
-              value: ${CI_SERVER_URL}
+              value: https://${GITLAB_HOST}
             - name: REGISTRATION_TOKEN
-              value: ${REGISTRATION_TOKEN}
+              valueFrom:
+                secretKeyRef:
+                  key: registrationToken
+                  name: gitlab-runner-secret
             - name: RUNNER_TAG_LIST
               value: ${RUNNER_TAG_LIST}
             - name: KUBERNETES_NAMESPACE
@@ -228,6 +269,9 @@ objects:
             - gitlab-runner
             - register
           resources:
+            requests:
+              cpu: 50m
+              memory: 50Mi
             limits:
               cpu: 100m
               memory: 100Mi
@@ -243,12 +287,23 @@ objects:
               cpu: 100m
               memory: 100Mi
             limits:
-              cpu: 500m
-              memory: 512Mi
+              cpu: 200m
+              memory: 200Mi
           volumeMounts:
             - mountPath: /home/gitlab-runner/.gitlab-runner
               name: data
               readOnly: false
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - /bin/bash
+                  - -c
+                  - |
+                    {
+                      gitlab-runner unregister --all-runners
+                      sleep 5
+                    } &>/proc/1/fd/1
         serviceAccountName: gitlab
         volumes:
           - name: data
@@ -256,3 +311,6 @@ objects:
           - name: gitlab-runner-config
             configMap:
               name: gitlab-runner-config-map
+          - name: gitlab-runner-secret
+            secret:
+              secretName: gitlab-runner-secret
