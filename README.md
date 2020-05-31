@@ -75,6 +75,13 @@ concurrent build pods.
 
     required: false
 
+* TEMPLATE_CONFIG_FILE
+
+    description: A patch for config.toml which will be applied during runner registration. Details
+    in https://docs.gitlab.com/runner/register/#runners-configuration-template-file
+
+    required: false
+
 ## Usage
 
 Add and instantiate the template:
@@ -87,7 +94,7 @@ oc process -f ocp-gitlab-runner-template.yaml \
   -p CONCURRENT="number_of_concurrent_pods" | oc create -f -
 ```
 
-Delete all created objects:
+In order to delete all created objects:
 
 ```shell
 oc delete secret,cm,sa,rolebindings,bc,is,dc -l app=some_name

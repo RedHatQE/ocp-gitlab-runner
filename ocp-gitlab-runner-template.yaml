@@ -40,6 +40,13 @@ parameters:
     Base64 encoded string is expected.
   required: false
   value: ""
+- name: TEMPLATE_CONFIG_FILE
+  displayName: Configuration template file
+  description: |
+    A patch for config.toml which will be applied during runner registration. Details in 
+    https://docs.gitlab.com/runner/register/#runners-configuration-template-file
+  required: false
+  value: ""
 
 objects:
 
@@ -55,6 +62,7 @@ objects:
       check_interval = 30
       log_level = "info"
       listen_address = ":9252"
+    config.template.toml: ${TEMPLATE_CONFIG_FILE}
 
 - kind: Secret
   apiVersion: v1
@@ -265,6 +273,8 @@ objects:
               value: ${GITLAB_BUILDER_IMAGE}
             - name: KUBERNETES_HELPER_IMAGE
               value: gitlab-helper:latest
+            - name: TEMPLATE_CONFIG_FILE
+              value: /mnt/gitlab-runner-config/config.template.toml
           command: 
             - gitlab-runner
             - register
@@ -278,7 +288,8 @@ objects:
           volumeMounts:
             - mountPath: /home/gitlab-runner/.gitlab-runner
               name: data
-              readOnly: false
+            - mountPath: /mnt/gitlab-runner-config
+              name: gitlab-runner-config
         containers:
         - name: ${NAME}
           image: " "
