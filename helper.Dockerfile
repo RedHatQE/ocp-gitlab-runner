@@ -1,4 +1,4 @@
-FROM gitlab/gitlab-runner-helper:x86_64-latest
+FROM gitlab/gitlab-runner-helper:x86_64-448c28a9
 
 ENV HOME=/home/workspace
 
