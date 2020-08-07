@@ -46,14 +46,14 @@ parameters:
     A patch for config.toml which will be applied during runner registration. Details in 
     https://docs.gitlab.com/runner/register/#runners-configuration-template-file
   required: false
-  value: ""
+  value: "[[runners]]"
 
 objects:
 
 - kind: ConfigMap
   apiVersion: v1
   metadata:
-    name: gitlab-runner-config-map
+    name: ${NAME}-gitlab-runner-config-map
     labels:
       app: ${NAME}
   data:
@@ -67,7 +67,7 @@ objects:
 - kind: Secret
   apiVersion: v1
   metadata:
-    name: gitlab-runner-secret
+    name: ${NAME}-gitlab-runner-secret
     labels:
       app: ${NAME}
   data:
@@ -78,14 +78,14 @@ objects:
 - kind: ServiceAccount
   apiVersion: v1
   metadata:
-    name: gitlab
+    name: gitlab-${NAME}
     labels:
       app: ${NAME}
 
 - kind: RoleBinding
   apiVersion: rbac.authorization.k8s.io/v1
   metadata:
-    name: gitlab-rb
+    generateName: gitlab-rb-
     labels:
       app: ${NAME}
   roleRef:
@@ -94,14 +94,14 @@ objects:
     name: edit
   subjects:
   - kind: ServiceAccount
-    name: gitlab
+    name: gitlab-${NAME}
 
 - kind: BuildConfig
   apiVersion: v1
   metadata:
     labels:
       app: ${NAME}
-    name: ${NAME}
+    generateName: ${NAME}-
     annotations:
       template.alpha.openshift.io/wait-for-ready: "true"
   spec:
@@ -149,7 +149,7 @@ objects:
   metadata:
     labels:
       app: ${NAME}
-    name: gitlab-helper
+    generateName: gitlab-helper-
     annotations:
       template.alpha.openshift.io/wait-for-ready: "true"
   spec:
@@ -158,7 +158,7 @@ objects:
     output:
       to:
         kind: ImageStreamTag
-        name: gitlab-helper:latest
+        name: ${NAME}-gitlab-helper:latest
     resources:
       request:
         cpu: 100m
@@ -182,7 +182,7 @@ objects:
 - kind: ImageStream
   apiVersion: v1
   metadata:
-    name: gitlab-helper
+    name: ${NAME}-gitlab-helper
     labels:
       app: ${NAME}
   spec:
@@ -194,7 +194,7 @@ objects:
   metadata:
     annotations:
       template.alpha.openshift.io/wait-for-ready: "true"
-    name: ${NAME}
+    generateName: ${NAME}-
     labels:
       app: ${NAME}
   spec:
@@ -261,7 +261,7 @@ objects:
               valueFrom:
                 secretKeyRef:
                   key: registrationToken
-                  name: gitlab-runner-secret
+                  name: ${NAME}-gitlab-runner-secret
             - name: RUNNER_TAG_LIST
               value: ${RUNNER_TAG_LIST}
             - name: KUBERNETES_NAMESPACE
@@ -272,7 +272,7 @@ objects:
             - name: KUBERNETES_BUILDER_IMAGE
               value: ${GITLAB_BUILDER_IMAGE}
             - name: KUBERNETES_HELPER_IMAGE
-              value: gitlab-helper:latest
+              value: ${NAME}-gitlab-helper:latest
             - name: TEMPLATE_CONFIG_FILE
               value: /mnt/gitlab-runner-config/config.template.toml
           command: 
@@ -315,13 +315,13 @@ objects:
                       gitlab-runner unregister --all-runners
                       sleep 5
                     } &>/proc/1/fd/1
-        serviceAccountName: gitlab
+        serviceAccountName: gitlab-${NAME}
         volumes:
           - name: data
             emptyDir: {}
           - name: gitlab-runner-config
             configMap:
-              name: gitlab-runner-config-map
+              name: ${NAME}-gitlab-runner-config-map
           - name: gitlab-runner-secret
             secret:
-              secretName: gitlab-runner-secret
+              secretName: ${NAME}-gitlab-runner-secret
