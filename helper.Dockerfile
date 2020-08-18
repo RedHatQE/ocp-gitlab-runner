@@ -18,6 +18,8 @@ FROM registry.access.redhat.com/ubi8-minimal:8.2
 COPY --from=builder /gitlab-runner/dockerfiles/build/binaries/gitlab-runner-helper.x86_64 \
      /usr/bin/gitlab-runner-helper
 
+COPY --from=builder /gitlab-runner/dockerfiles/build/scripts /usr/bin
+
 ENV HOME=/home/workspace
 
 WORKDIR $HOME
