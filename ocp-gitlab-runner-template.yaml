@@ -47,6 +47,16 @@ parameters:
     https://docs.gitlab.com/runner/register/#runners-configuration-template-file
   required: false
   value: "[[runners]]"
+- name: TEMPLATE_REPO
+  displayName: Template repository URL 
+  description: URL of a repository of this template.
+  required: false
+  value: "https://github.com/RedHatQE/ocp-gitlab-runner"
+- name: TEMPLATE_REF
+  displayName: Template repository ref
+  description: Repository ref of this template.
+  required: false
+  value: "master"
 
 objects:
 
@@ -121,8 +131,8 @@ objects:
     runPolicy: Serial
     source:
       git:
-        uri: https://github.com/quarckster/ocp-gitlab-runner
-        ref: reproducible
+        uri: ${TEMPLATE_REPO}
+        ref: ${TEMPLATE_REF}
       type: Git
     strategy:
       dockerStrategy:
@@ -169,8 +179,8 @@ objects:
     runPolicy: Serial
     source:
       git:
-        uri: https://github.com/quarckster/ocp-gitlab-runner
-        ref: reproducible
+        uri: ${TEMPLATE_REPO}
+        ref: ${TEMPLATE_REF}
       type: Git
     strategy:
       dockerStrategy:
