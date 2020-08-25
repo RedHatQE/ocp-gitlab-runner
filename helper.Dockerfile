@@ -9,16 +9,16 @@ ENV GITLAB_RUNNER_VERSION=${GITLAB_RUNNER_VERSION:-"master"} \
 RUN dnf install -y git make go && \
     git clone --depth=1 --branch=${GITLAB_RUNNER_VERSION} ${GITLAB_REPO} && \
     cd gitlab-runner && \
-    make helper-build && \ 
-    chmod a+x dockerfiles/build/binaries/gitlab-runner-helper.x86_64 && \
-    dockerfiles/build/binaries/gitlab-runner-helper.x86_64 --version
+    make helper-bin-host && \ 
+    chmod a+x out/binaries/gitlab-runner-helper/gitlab-runner-helper.x86_64 && \
+    out/binaries/gitlab-runner-helper/gitlab-runner-helper.x86_64 --version
 
 FROM registry.access.redhat.com/ubi8-minimal:8.2
 
-COPY --from=builder /gitlab-runner/dockerfiles/build/binaries/gitlab-runner-helper.x86_64 \
+COPY --from=builder /gitlab-runner/out/binaries/gitlab-runner-helper/gitlab-runner-helper.x86_64 \
      /usr/bin/gitlab-runner-helper
 
-COPY --from=builder /gitlab-runner/dockerfiles/build/scripts /usr/bin
+COPY --from=builder /gitlab-runner/dockerfiles/runner-helper/scripts/ /usr/bin
 
 ENV HOME=/home/workspace
 
