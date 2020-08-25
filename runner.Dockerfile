@@ -9,7 +9,7 @@ ENV GITLAB_RUNNER_VERSION=${GITLAB_RUNNER_VERSION:-"master"} \
 RUN dnf install -y git make go && \
     git clone --depth=1 --branch=${GITLAB_RUNNER_VERSION} ${GITLAB_REPO} && \
     cd gitlab-runner && \
-    make build_simple && \ 
+    make runner-bin-host && \ 
     chmod a+x out/binaries/gitlab-runner && \
     out/binaries/gitlab-runner --version
 

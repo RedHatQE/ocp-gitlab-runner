@@ -6,6 +6,33 @@ cluster admin privileges. Moreover, default images are not designed to run using
 assigned user ID. This repo contains dockerfiles and an OpenShift template which allows you to
 deploy the GitLab runner in OCP with minimum efforts.
 
+## Usage
+
+1. Clone required version, e.g. `v13.3.0`:
+
+    ```shell
+    git clone --depth=1 --branch=v13.3.0 https://github.com/RedHatQE/ocp-gitlab-runner
+    ```
+
+    You can also try to use `master` but it might not working due to the changes in
+    `https://gitlab.com/gitlab-org/gitlab-runner`.
+
+2. Add and instantiate the template:
+
+    ```shell
+    oc process -f ocp-gitlab-runner/ocp-gitlab-runner-template.yaml \
+    -p NAME="some_name" \
+    -p GITLAB_HOST="example.com" \
+    -p REGISTRATION_TOKEN="$(echo -n some_token | base64)" \
+    -p CONCURRENT="number_of_concurrent_pods" | oc create -f -
+    ```
+
+In order to delete all created objects:
+
+```shell
+oc delete secret,cm,sa,rolebindings,bc,is,dc -l app=some_name
+```
+
 ## Contents
 
 ### runner.Dockerfile
@@ -70,8 +97,8 @@ concurrent build pods.
 
 * TLS_CA_CERT
 
-    description: A certificate that is used to verify TLS peers when connecting to the GitLab server.
-    Base64 encoded string is expected.
+    description: A certificate that is used to verify TLS peers when connecting to the GitLab
+    server. Base64 encoded string is expected.
 
     required: false
 
@@ -82,21 +109,12 @@ concurrent build pods.
 
     required: false
 
-## Usage
+* TEMPLATE_REPO
 
-Add and instantiate the template:
+    description: A repo url with this template. It might be useful for development puproses.
+    required: false
 
-```shell
-oc process -f ocp-gitlab-runner-template.yaml \
-  -p NAME="some_name" \
-  -p GITLAB_HOST="example.com" \
-  -p GITLAB_RUNNER_VERSION="v13.1.2" \
-  -p REGISTRATION_TOKEN="$(echo -n some_token | base64)" \
-  -p CONCURRENT="number_of_concurrent_pods" | oc create -f -
-```
+* TEMPLATE_REF
 
-In order to delete all created objects:
-
-```shell
-oc delete secret,cm,sa,rolebindings,bc,is,dc -l app=some_name
-```
+    description: A ref of the repo with this template. It might be useful for development puproses.
+    required: false
