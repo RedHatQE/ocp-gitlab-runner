@@ -99,16 +99,18 @@ concurrent build pods.
 * TEMPLATE_CONFIG_FILE
 
     description: A patch for config.toml which will be applied during runner registration. Details
-    in https://docs.gitlab.com/runner/register/#runners-configuration-template-file
+    in <https://docs.gitlab.com/runner/register/#runners-configuration-template-file>
 
     required: false
 
 * TEMPLATE_REPO
 
     description: A repo url with this template. It might be useful for development puproses.
+
     required: false
 
 * TEMPLATE_REF
 
     description: A ref of the repo with this template. It might be useful for development puproses.
+
     required: false
