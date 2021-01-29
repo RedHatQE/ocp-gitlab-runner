@@ -10,7 +10,7 @@ ENV GITLAB_REPO=https://gitlab.com/gitlab-org/gitlab-runner.git \
 RUN dnf install -y git-core make go && \
     git clone --depth=1 --branch=${GITLAB_RUNNER_VERSION} ${GITLAB_REPO} && \
     cd gitlab-runner && \
-    make runner-bin-host && \ 
+    make runner-bin-host && \
     chmod a+x out/binaries/gitlab-runner && \
     out/binaries/gitlab-runner --version
 

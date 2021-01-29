@@ -202,132 +202,29 @@ objects:
     lookupPolicy:
       local: true
 
-- kind: DeploymentConfig
-  apiVersion: v1
+- kind: Deployment
+  apiVersion: apps/v1
   metadata:
     annotations:
       template.alpha.openshift.io/wait-for-ready: "true"
+      image.openshift.io/triggers: '[{"from":{"kind":"ImageStreamTag","${NAME}":"${GITLAB_RUNNER_VERSION}"},"fieldPath":"spec.template.spec.containers[?(@.name==\"${NAME}\")].image"}]'
     generateName: ${NAME}-
     labels:
       app: ${NAME}
   spec:
+    revisionHistoryLimit: 2
+    replicas: 1
     strategy:
       type: Recreate
-    triggers:
-    - type: ImageChange
-      imageChangeParams:
-        automatic: true
-        containerNames:
-        - ${NAME}
-        from:
-          kind: ImageStreamTag
-          name: ${NAME}:${GITLAB_RUNNER_VERSION}
-    replicas: 1
     selector:
-      name: ${NAME}
+      matchLabels:
+        name: ${NAME}
     template:
       metadata:
         name: ${NAME}
         labels:
           name: ${NAME}
       spec:
-        initContainers:
-        - name: busybox
-          image: docker.io/busybox
-          command:
-            - /bin/sh
-            - -c
-            - |
-              cp /mnt/gitlab-runner-config/config.toml /mnt/data/config.toml
-              if [ -s /mnt/secrets/${GITLAB_HOST}.crt ]; then
-                mkdir /mnt/data/certs
-                cp /mnt/secrets/${GITLAB_HOST}.crt /mnt/data/certs
-              fi
-          resources:
-            requests:
-              cpu: 10m
-              memory: 10Mi
-            limits:
-              cpu: 50m
-              memory: 50Mi
-          volumeMounts:
-            - mountPath: /mnt/gitlab-runner-config
-              name: gitlab-runner-config
-            - mountPath: /mnt/data
-              name: data
-            - mountPath: /mnt/secrets
-              name: gitlab-runner-secret
-        - name: gitlab-runner-init
-          image: ${NAME}:${GITLAB_RUNNER_VERSION}
-          env:
-            - name: RUNNER_EXECUTOR
-              value: kubernetes
-            - name: REGISTER_LOCKED
-              value: "false"
-            - name: REGISTER_NON_INTERACTIVE
-              value: "true"
-            - name: RUNNER_NAME
-              value: ${NAME}
-            - name: CI_SERVER_URL
-              value: https://${GITLAB_HOST}
-            - name: REGISTRATION_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  key: registrationToken
-                  name: ${NAME}-gitlab-runner-secret
-            - name: RUNNER_TAG_LIST
-              value: ${RUNNER_TAG_LIST}
-            - name: KUBERNETES_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.namespace
-            - name: KUBERNETES_BUILDER_IMAGE
-              value: ${GITLAB_BUILDER_IMAGE}
-            - name: KUBERNETES_HELPER_IMAGE
-              value: ${NAME}-gitlab-helper:${GITLAB_RUNNER_VERSION}
-            - name: TEMPLATE_CONFIG_FILE
-              value: /mnt/gitlab-runner-config/config.template.toml
-          command: 
-            - gitlab-runner
-            - register
-          resources:
-            requests:
-              cpu: 50m
-              memory: 50Mi
-            limits:
-              cpu: 100m
-              memory: 100Mi
-          volumeMounts:
-            - mountPath: /home/gitlab-runner/.gitlab-runner
-              name: data
-            - mountPath: /mnt/gitlab-runner-config
-              name: gitlab-runner-config
-        containers:
-        - name: ${NAME}
-          image: " "
-          resources:
-            request:
-              cpu: 100m
-              memory: 100Mi
-            limits:
-              cpu: 200m
-              memory: 200Mi
-          volumeMounts:
-            - mountPath: /home/gitlab-runner/.gitlab-runner
-              name: data
-              readOnly: false
-          lifecycle:
-            preStop:
-              exec:
-                command:
-                  - /bin/bash
-                  - -c
-                  - |
-                    {
-                      gitlab-runner unregister --all-runners
-                      sleep 5
-                    } &>/proc/1/fd/1
         serviceAccountName: gitlab-${NAME}
         volumes:
           - name: data
@@ -338,3 +235,100 @@ objects:
           - name: gitlab-runner-secret
             secret:
               secretName: ${NAME}-gitlab-runner-secret
+        initContainers:
+          - name: gitlab-runner-config
+            image: ${NAME}:${GITLAB_RUNNER_VERSION}
+            command:
+              - /bin/sh
+              - -c
+              - |
+                cp /mnt/gitlab-runner-config/config.toml /mnt/data/config.toml
+                if [ -s /mnt/secrets/${GITLAB_HOST}.crt ]; then
+                  mkdir /mnt/data/certs
+                  cp /mnt/secrets/${GITLAB_HOST}.crt /mnt/data/certs
+                fi
+            resources:
+              requests:
+                cpu: 10m
+                memory: 10Mi
+              limits:
+                cpu: 50m
+                memory: 50Mi
+            volumeMounts:
+              - mountPath: /mnt/gitlab-runner-config
+                name: gitlab-runner-config
+              - mountPath: /mnt/data
+                name: data
+              - mountPath: /mnt/secrets
+                name: gitlab-runner-secret
+          - name: gitlab-runner-register
+            image: ${NAME}:${GITLAB_RUNNER_VERSION}
+            env:
+              - name: RUNNER_EXECUTOR
+                value: kubernetes
+              - name: REGISTER_LOCKED
+                value: "false"
+              - name: REGISTER_NON_INTERACTIVE
+                value: "true"
+              - name: RUNNER_NAME
+                value: ${NAME}
+              - name: CI_SERVER_URL
+                value: https://${GITLAB_HOST}
+              - name: REGISTRATION_TOKEN
+                valueFrom:
+                  secretKeyRef:
+                    key: registrationToken
+                    name: ${NAME}-gitlab-runner-secret
+              - name: RUNNER_TAG_LIST
+                value: ${RUNNER_TAG_LIST}
+              - name: KUBERNETES_NAMESPACE
+                valueFrom:
+                  fieldRef:
+                    apiVersion: v1
+                    fieldPath: metadata.namespace
+              - name: KUBERNETES_BUILDER_IMAGE
+                value: ${GITLAB_BUILDER_IMAGE}
+              - name: KUBERNETES_HELPER_IMAGE
+                value: ${NAME}-gitlab-helper:${GITLAB_RUNNER_VERSION}
+              - name: TEMPLATE_CONFIG_FILE
+                value: /mnt/gitlab-runner-config/config.template.toml
+            command: 
+              - gitlab-runner
+              - register
+            resources:
+              requests:
+                cpu: 50m
+                memory: 50Mi
+              limits:
+                cpu: 100m
+                memory: 100Mi
+            volumeMounts:
+              - mountPath: /home/gitlab-runner/.gitlab-runner
+                name: data
+              - mountPath: /mnt/gitlab-runner-config
+                name: gitlab-runner-config
+        containers:
+          - name: ${NAME}
+            image: ${NAME}:${GITLAB_RUNNER_VERSION}
+            resources:
+              request:
+                cpu: 100m
+                memory: 100Mi
+              limits:
+                cpu: 200m
+                memory: 200Mi
+            volumeMounts:
+              - mountPath: /home/gitlab-runner/.gitlab-runner
+                name: data
+                readOnly: false
+            lifecycle:
+              preStop:
+                exec:
+                  command:
+                    - /bin/bash
+                    - -c
+                    - |
+                      {
+                        gitlab-runner unregister --all-runners
+                        sleep 5
+                      } &>/proc/1/fd/1
