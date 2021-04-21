@@ -14,9 +14,9 @@ parameters:
   required: true
 - name: GITLAB_RUNNER_VERSION
   displayName: Gitlab runner version
-  description:
+  description: ""
   required: false
-  value: master
+  value: "v13.11.0"
 - name: REGISTRATION_TOKEN
   displayName: Registration token
   description: Runner's registration token. Base64 encoded string is expected.
@@ -56,7 +56,7 @@ parameters:
   displayName: Template repository ref
   description: Repository ref of this template.
   required: false
-  value: "master"
+  value: "v13.11.0"
 
 objects:
 
