@@ -7,7 +7,7 @@ ARG GITLAB_RUNNER_VERSION
 ENV GITLAB_REPO=https://gitlab.com/gitlab-org/gitlab-runner.git \
     PATH=$PATH:/root/go/bin/
 
-RUN dnf install -y git-core make go && \
+RUN dnf install -y git-core make go ncurses && \
     git clone --depth=1 --branch=${GITLAB_RUNNER_VERSION} ${GITLAB_REPO} && \
     cd gitlab-runner && \
     make helper-bin-host && \
@@ -38,7 +38,7 @@ LABEL maintainer="Dmitry Misharov <misharov@redhat.com>" \
 
 WORKDIR $HOME
 
-RUN microdnf --disableplugin=subscription-manager install -y git-core git-lfs perl-interpreter --nodocs && \
+RUN microdnf --disableplugin=subscription-manager install -y hostname git-core git-lfs perl-interpreter --nodocs && \
     microdnf clean all && \
     chgrp -R 0 $HOME && \
     chmod -R g=u $HOME
