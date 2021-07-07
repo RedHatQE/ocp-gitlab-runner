@@ -8,13 +8,10 @@ deploy the GitLab runner in OCP with minimum efforts.
 
 ## Usage
 
-Add and instantiate the template. You should replace `GITLAB_RUNNER_VERSION` by required version of
-`gitlab-runner`, e.g. `v13.8.0`. It's not guaranteed that version from `master` will work due to
-changes in <https://gitlab.com/gitlab-org/gitlab-runner> repo. You can also specify `latest` in
-`GITLAB_RUNNER_VERSION` to provision the latest stable version of the template.
+Add and instantiate the template.
 
 ```sh
-oc process -f https://raw.githubusercontent.com/RedHatQE/ocp-gitlab-runner/GITLAB_RUNNER_VERSION/ocp-gitlab-runner-template.yaml \
+oc process -f https://raw.githubusercontent.com/RedHatQE/ocp-gitlab-runner/v14.0.1/ocp-gitlab-runner-template.yaml \
 -p NAME="some_name" \
 -p GITLAB_HOST="example.com" \
 -p REGISTRATION_TOKEN="$(echo -n some_token | base64)" \
