@@ -1,7 +1,7 @@
 # Intention
 
 Gitlab proposes to deploy the runner using Helm or GitLab operator. It requires additional
-ermissions. This approach problematically to use in OpenShift Container Platform if you don't have
+permissions. This approach problematically to use in OpenShift Container Platform if you don't have
 cluster admin privileges. Moreover, default images are not designed to run using an arbitrarily
 assigned user ID. This repo contains dockerfiles and an OpenShift template which allows you to
 deploy the GitLab runner in OCP with minimum efforts.
