@@ -1,6 +1,6 @@
 ARG GITLAB_RUNNER_VERSION=master
 
-FROM registry.access.redhat.com/ubi8:8.4 AS builder
+FROM registry.access.redhat.com/ubi8:8.5 AS builder
 
 ARG GITLAB_RUNNER_VERSION
 
@@ -14,7 +14,7 @@ RUN dnf install -y git-core make go ncurses && \
     chmod a+x out/binaries/gitlab-runner-helper/gitlab-runner-helper.x86_64 && \
     out/binaries/gitlab-runner-helper/gitlab-runner-helper.x86_64 --version
 
-FROM registry.access.redhat.com/ubi8-minimal:8.4
+FROM registry.access.redhat.com/ubi8-minimal:8.5
 
 ARG GITLAB_RUNNER_VERSION
 
